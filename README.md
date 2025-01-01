@@ -19,7 +19,14 @@
     - 이 점을 기반으로, APP Push 발송에 문제가 있을 가능성을 가설로 설정하고 Push 발송 소스코드를 확인함
   - APP Push 발송 소스코드 검증
     - Push 발송 부분은 별도의 try ~ catch로 처리되어 있었으며, statusCode가 200이면 정상 처리로 간주하는 로직 확인
-    - 그러나 내부 응답값에서 success: 0, failure: 1, results: { error: 'DeprecatedApi' } 상태를 발견
+    - 그러나 내부 응답값에서 아래와 같은 에러 발견
+      ~~~
+      { 
+          success: 0,
+          failure: 1,
+          results: { error: 'DeprecatedApi' } 
+      }
+      ~~~
   - 문제 원인 파악
     - FCM API 관련 공식문서 확인 결과
       - `2023년 6월 20일` `지원 중단`
