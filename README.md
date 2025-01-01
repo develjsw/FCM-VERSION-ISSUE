@@ -28,8 +28,110 @@
 
 
 - 해결 과정
-  - 내용 작성중
+  - Legacy API → HTTP v1 API로 마이그레이션
+    - Firebase Admin SDK 대신 HTTP v1 API를 선택한 이유
+      - Firebase Admin SDK는 Node.js 18 이상에서 사용 권장되지만, 내부 서비스가 Node.js 16 버전을 사용하고 있어 SDK 도입 전 버전 업그레이드가 필요한 상황이였음
+      - HTTP v1 API는 Legacy API와 구조적으로 유사하여 기존 로직을 최소한으로 수정하며 전환할 수 있었음
+      - 25년도 PUSH 발송 API 통합 계획에 따라, 현재 문제를 신속하고 안정적으로 해결하기 위해 HTTP v1 API를 사용
 
 
 - 재발 방지대책 + 확장성 고려
-  - 내용 작성 예정
+  - 재발 방지
+    - 에러 처리 및 모니터링 강화
+      - HTTP v1 API는 Legacy API와 달리, HTTP 상태 코드와 함께 상세한 오류 메시지를 제공
+        - `2024년 12월 17일부터` `Legacy API`는 results 배열의 error 필드로 Deprecated API를 알리던 방식에서, `HTTP status 코드로 에러를 반환`하는 방식으로 변경됨  
+      - 이를 기반으로 에러 발생 시 예외 처리 로직을 명확히 구현하여 안정성을 강화
+      - 예외 발생 시 Slack 알림을 자동 발송하도록 설정하여, 실시간으로 문제를 감지하고 빠르게 대응할 수 있도록 함
+  - 확장성
+    - 멀티 PUSH 발송 기능 구현
+      - 멀티 발송 기능이 사용되고 있는 곳은 없었지만, 확장성 확보를 위해 구현 
+        - HTTP v1 API는 registration_ids 배열 방식 대신 반복문으로 개별 발송하는 구조 
+    - iOS 지원 추가
+      - 기존 API에는 Android만 대상으로 설정되어 있었으나, HTTP v1 API로 마이그레이션하면서 iOS 지원 추가
+  - 코드 모듈화 작업
+    - 산발적으로 작성된 PUSH 관련 소스코드를 하나의 모듈로 통합
+    - 25년도 PUSH 발송 통합 작업에 대비해 통합 비용을 줄이고 개발 생산성을 높임
+
+
+- 참고사항
+  - Legacy API vs HTTP v1 API
+    - Legacy API
+      - 요청 형식 예시
+         ~~~
+         {
+             registration_ids: [FCM TOKEN_1, FCM TOKEN_2 ... 값들],
+             priority: 'high',
+             data: {
+                 pushType: 값,
+                 id: 값,
+                 title: 값,
+                 body: 값
+             }
+         }
+         ~~~ 
+      - 응답 형식 예시
+         ~~~
+         {
+             "multicast_id": 216,
+             "success": 1, // 성공 개수
+             "failure": 2, // 실패 개수
+             "canonical_ids": 0,
+             "results": [
+                 {"message_id": "1:234234234234"}, // 성공
+                 {"error": "Unavailable"}, // 실패
+                 {"error": "InvalidRegistration"} // 실패
+             ]
+         }
+         ~~~
+    - HTTP v1 API
+      - 요청 형식 예시
+         ~~~
+         {
+             message: {
+             token: FCM TOKEN값,
+             notification: {
+                 ...(body && { body }),
+                 title,
+             },
+             ...(android && { android }),
+             ...(apns && { apns }),
+             ...(data && { data }),
+             },
+         }
+         ~~~
+      - 응답 형식 예시
+         ~~~
+         // 성공
+         {
+             name: 'projects/프로젝트ID/messages/0:1734511116280273%071979c5071979c5'
+         }
+        
+         // 실패
+         {
+             "error": {
+                 "code": 400,
+                 "message": "Invalid JSON payload received. Unexpected token.",
+                 "status": "INVALID_ARGUMENT",
+                 "details": [
+                     {
+                         "@type": "type.googleapis.com/google.rpc.BadRequest",
+                         "fieldViolations": [
+                             {
+                                 "field": "message.notification.title",
+                                 "description": "The title field is required."
+                             }
+                         ]
+                     }
+                 ]
+             }
+         }
+         ~~~
+      
+| **특징**          | **Legacy API**                        | **HTTP v1 API**                                                                                             |
+|-----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| **멀티 PUSH 발송 방식** | `registration_ids` 배열로 한 번에 발송        | 반복문을 통해 개별 메시지 발송                                                                               |
+| **인증 방식**       | 서버 키 ( Server Key )                   | OAuth 2.0 Bearer Token                                                                                      |
+| **엔드포인트**       | `https://fcm.googleapis.com/fcm/send` | `https://fcm.googleapis.com/v1/projects/{project-id}/messages:send`                                         |
+| **오류 보고 및 응답**  | 간단한 성공/실패 상태만 반환                      | 상세한 오류 코드와 메시지 제공                                                                               |
+| **메시지 구조**      | 단순 JSON 형식, 플랫폼별 세부 설정이 제한적           | JSON 구조화, 플랫폼별 키 블록 제공으로 세부 설정 가능                                                       |
+
