@@ -24,13 +24,15 @@
     - FCM API 관련 공식문서 확인 결과
       - `2023년 6월 20일` `지원 중단`
       - `2024년 7월 22일` `서비스 종료 시작`
+      ![FCM API에서 HTTP v1로 이전](https://github.com/user-attachments/assets/e308ea57-0fdd-4e25-9397-70ff1abbae81)
     - 따라서, `HTTP v1 버전`으로 `마이그레이션이 필요`하다는 결론에 도달함
 
 
 - 해결 과정
+  - Firebase 서비스 계정 키(JSON 파일) 생성 후, 이를 통해 client_email, private_key, token_uri 값을 사용하여 Google OAuth 2.0 Access Token을 발급받아 Push 발송에 사용 
   - Legacy API → HTTP v1 API로 마이그레이션
     - Firebase Admin SDK 대신 HTTP v1 API를 선택한 이유
-      - Firebase Admin SDK는 Node.js 18 이상에서 사용 권장되지만, 내부 서비스가 Node.js 16 버전을 사용하고 있어 SDK 도입 전 버전 업그레이드가 필요한 상황이였음
+      - Firebase Admin SDK는 Node.js 18 이상에서 사용 권장되지만, 내부 서비스가 Node.js 16 버전을 사용하고 있어 SDK 도입 전 버전 업그레이드가 필요한 상황이였음 ![firebase admin sdk 기본요건](https://github.com/user-attachments/assets/6e0c48b4-1ae9-4de7-ac56-6eb0db02527c)
       - HTTP v1 API는 Legacy API와 구조적으로 유사하여 기존 로직을 최소한으로 수정하며 전환할 수 있었음
       - 25년도 PUSH 발송 API 통합 계획에 따라, 현재 문제를 신속하고 안정적으로 해결하기 위해 HTTP v1 API를 사용
 
